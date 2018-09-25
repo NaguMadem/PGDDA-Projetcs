@@ -1,0 +1,474 @@
+/* Creating the External table Nov*/
+CREATE EXTERNAL TABLE IF NOT EXISTS yellow_taxi_Nov(
+        VendorID STRING, 
+        tpep_pickup_datetime timestamp,
+        tpep_dropoff_datetime timestamp,
+        passenger_count INT,
+        trip_distance DECIMAL, 
+        RatecodeID INT,
+        store_and_fwd_flag STRING,
+        PULocationID DECIMAL,
+        DOLocationID DECIMAL,
+        payment_type INT,
+        fare_amount DECIMAL,
+        extra DECIMAL,
+        mta_tax DECIMAL,
+        tip_amount DECIMAL,
+        tolls_amount DECIMAL,
+        improvement_surcharge DECIMAL,
+        total_amount    DECIMAL)
+    COMMENT 'Data about yellow taxi in  Nov from a public database'
+    ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS ORC
+    location '/common_folder/nyc_taxi_data/nov/'
+    tblproperties("skip.header.line.count"="2");
+
+/* Creating the external table for Dec */    
+CREATE EXTERNAL TABLE IF NOT EXISTS yellow_taxi_Dec(
+        VendorID STRING, 
+        tpep_pickup_datetime timestamp,
+        tpep_dropoff_datetime timestamp,
+        passenger_count INT,
+        trip_distance DECIMAL, 
+        RatecodeID INT,
+        store_and_fwd_flag STRING,
+        PULocationID DECIMAL,
+        DOLocationID DECIMAL,
+        payment_type INT,
+        fare_amount DECIMAL,
+        extra DECIMAL,
+        mta_tax DECIMAL,
+        tip_amount DECIMAL,
+        tolls_amount DECIMAL,
+        improvement_surcharge DECIMAL,
+        total_amount    DECIMAL )
+    COMMENT 'Data about yellow taxi in  Nov from a public database'
+    ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS ORC
+    location '/common_folder/nyc_taxi_data/dec/'
+    tblproperties("skip.header.line.count"="2");
+
+
+/* Merging the two tables Nov and Dec table */
+CREATE EXTERNAL TABLE IF NOT EXISTS yellow_taxi_mergeddata(
+        VendorID STRING, 
+        tpep_pickup_datetime timestamp,
+        tpep_dropoff_datetime timestamp,
+        passenger_count INT,
+        trip_distance DECIMAL, 
+        RatecodeID INT,
+        store_and_fwd_flag STRING,
+        PULocationID DECIMAL,
+        DOLocationID DECIMAL,
+        payment_type INT,
+        fare_amount DECIMAL,
+        extra DECIMAL,
+        mta_tax DECIMAL,
+        tip_amount DECIMAL,
+        tolls_amount DECIMAL,
+        improvement_surcharge DECIMAL,
+        total_amount    DECIMAL) STORED AS ORC
+location '/user/nmadem_gmail/';
+
+/* inserting the Nov and Dec table into yellow_taxi_mergeddata */
+
+INSERT overwrite table yellow_taxi_mergeddata select * FROM yellow_taxi_nov UNION ALL select * FROM yellow_taxi_dec;
+
+/* Partition of Nov table as year and month */
+CREATE EXTERNAL TABLE IF NOT EXISTS yellow_taxi_nov_partitioned(
+        VendorID STRING, 
+        tpep_pickup_datetime timestamp,
+        tpep_dropoff_datetime timestamp,
+        passenger_count INT,
+        trip_distance DECIMAL, 
+        RatecodeID INT,
+        store_and_fwd_flag STRING,
+        PULocationID DECIMAL,
+        DOLocationID DECIMAL,
+        payment_type INT,
+        fare_amount DECIMAL,
+        extra DECIMAL,
+        mta_tax DECIMAL,
+        tip_amount DECIMAL,
+        tolls_amount DECIMAL,
+        improvement_surcharge DECIMAL,
+        total_amount    DECIMAL)
+        PARTITIONED BY (yr INT,mnth INT)
+    ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS ORC
+    LOCATION '/user/nmadem_gmail/';
+
+/* To load partitiones dynamically */
+SET hive.exec.dynamic.partition = true;
+SET hive.exec.dynamic.partition.mode = nonstrict;
+
+/* inserting the data into partitioned table */    
+insert overwrite table yellow_taxi_nov_partitioned partition(yr,mnth)
+select
+        VendorID,
+        tpep_pickup_datetime,
+        tpep_dropoff_datetime,
+        passenger_count,
+        trip_distance,
+        RatecodeID,
+        store_and_fwd_flag,
+        PULocationID,
+        DOLocationID,
+        payment_type,
+        fare_amount,
+        extra,
+        mta_tax,
+        tip_amount,
+        tolls_amount,
+        improvement_surcharge,
+        total_amount, year(date_format(tpep_pickup_datetime,'YY')) as yr, month(date_format(tpep_pickup_datetime,'MM')) as mnth
+        from yellow_taxi_nov;
+
+/* Partition of Dec table as year and month */
+CREATE EXTERNAL TABLE IF NOT EXISTS yellow_taxi_dec_partitioned(
+        VendorID STRING, 
+        tpep_pickup_datetime timestamp,
+        tpep_dropoff_datetime timestamp,
+        passenger_count INT,
+        trip_distance DECIMAL, 
+        RatecodeID INT,
+        store_and_fwd_flag STRING,
+        PULocationID DECIMAL,
+        DOLocationID DECIMAL,
+        payment_type INT,
+        fare_amount DECIMAL,
+        extra DECIMAL,
+        mta_tax DECIMAL,
+        tip_amount DECIMAL,
+        tolls_amount DECIMAL,
+        improvement_surcharge DECIMAL,
+        total_amount    DECIMAL)
+        PARTITIONED BY (yr INT,mnth INT)
+    ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS ORC
+    LOCATION '/user/nmadem_gmail/';
+
+/* inserting the data into partitioned table */    
+insert overwrite table yellow_taxi_dec_partitioned partition(yr,mnth)
+select
+        VendorID,
+        tpep_pickup_datetime,
+        tpep_dropoff_datetime,
+        passenger_count,
+        trip_distance,
+        RatecodeID,
+        store_and_fwd_flag,
+        PULocationID,
+        DOLocationID,
+        payment_type,
+        fare_amount,
+        extra,
+        mta_tax,
+        tip_amount,
+        tolls_amount,
+        improvement_surcharge,
+        total_amount, year(date_format(tpep_pickup_datetime,'YY')) as yr, month(date_format(tpep_pickup_datetime,'MM')) as mnth
+        from yellow_taxi_dec;
+
+/* Assumptions */  
+/* The dataset of the first two lines are null values */
+
+/*How many records has each TPEP provider provided? Write a query that summarises the number of records of each provider.*/
+SELECT count(vendorid) as Count_VendorID, vendorid  FROM yellow_taxi_nov GROUP BY vendorid ORDER BY vendorid;
+
+	count_vendorid	vendorid	
+1	4188895		1
+2	5095908		2
+
+
+SELECT count(vendorid) as Count_VendorID, vendorid  FROM yellow_taxi_dec GROUP BY vendorid ORDER BY vendorid;
+
+	count_vendorid	vendorid
+1	4258254		1
+2	5250022		2
+
+/* The data provided is for months November and December only. Check whether the data is consistent, and if not, identify the data quality issues. Mention all data quality issues in comments. */
+
+
+SELECT DISTINCT(passenger_count) FROM yellow_taxi_mergeddata;
+
+
+SELECT * FROM yellow_taxi_mergeddata WHERE passenger_count is NULL;
+
+
+yellow_taxi_mergeddata.vendorid	yellow_taxi_mergeddata.tpep_pickup_datetime	yellow_taxi_mergeddata.tpep_dropoff_datetime	yellow_taxi_mergeddata.passenger_count	yellow_taxi_mergeddata.trip_distance	yellow_taxi_mergeddata.ratecodeid	yellow_taxi_mergeddata.store_and_fwd_flag	yellow_taxi_mergeddata.payment_type	yellow_taxi_mergeddata.fare_amount	yellow_taxi_mergeddata.extra	yellow_taxi_mergeddata.mta_tax	yellow_taxi_mergeddata.improvement_surcharge	yellow_taxi_mergeddata.tip_amount	yellow_taxi_mergeddata.tolls_amount	yellow_taxi_mergeddata.total_amount
+VendorID	NULL	NULL	NULL	NULL	NULL	store_and_fwd_flag	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+VendorID	NULL	NULL	NULL	NULL	NULL	store_and_fwd_flag	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL	NULL
+
+
+There are NULL values in the table, so deleting all the NULL values.
+
+/* Deleting the NULL values */
+DELETE from yellow_taxi_mergeddata WHERE passenger_count is NULL;
+
+SELECT * FROM yellow_taxi_mergeddata where trip_distance is NULL;
+
+Finding the same as above rows, which corresponds to passenger_count column.
+
+
+SELECT DISTINCT RatecodeId  FROM yellow_taxi_mergeddata;
+
+	ratecodeid
+1	NULL
+2	1
+3	2
+4	3
+5	4
+6	5
+7	6
+8	99
+
+/*Checking the ratecodeid NULL Values */
+
+SELECT * FROM yellow_taxi_mergeddata WHERE ratecodeid is NULL;
+
+Finding the same as above rows, which corresponds to passenger_count column.
+
+ratecodeid is having value 99, which is wrong data.
+
+SELECT count(*) as count_Val from yellow_taxi_mergeddata where ratecodeid=99;
+	count_Val 
+1	178
+
+SELECT count(vendorid) as count_Val, vendorid FROM yellow_taxi_mergeddata WHERE ratecodeid=99 GROUP BY vendorid ORDER BY vendorid;
+	
+	count_Val	vendorid
+1	178		1
+
+The above data looks like wrong for ratecodeid =99 for vendorid 1
+
+/* Deleting the data and moving the data into taxi_temp table */
+CREATE TABLE taxi_temp AS SELECT * from yellow_taxi_mergeddata WHERE passenger_count is  not null;
+
+/*Checking the NULL values in taxi_temp table */
+SELECT * from taxi_temp where passenger_count is NULL;
+
+No results found. so there is no NULL values present in the taxi_temp table. 
+
+/*Checking all the distinct values for all the columns from taxi_temp table*/
+
+SELECT DISTINCT store_and_fwd_flag from taxi_temp
+
+	store_and_fwd_flag 
+1	Y
+2	N
+
+/* Checking the total_amount */
+
+SELECT DISTINCT total_amount from taxi_temp;
+
+SELECT count(total_amount) as total_amount FROM taxi_temp where total_amount < 0;
+
+	total_amount 
+1	9372	
+
+Total 9372 negative values found for total_amount
+
+SELECT count(total_amount) as total_amount, vendorid FROM taxi_temp where total_amount < 0 GROUP BY vendorid ORDER BY vendorid;
+
+	total-amount	vendorid
+1	9372		2
+
+
+SELECT DISTINCT payment_type from taxi_temp;
+
+SELECT DISTINCT fare_amount from taxi_temp;
+
+SELECT fare_amount from taxi_temp where fare_amount < 0;
+
+SELECT count(fare_amount) as fare_amount FROM taxi_temp where fare_amount < 0;
+
+Total 9372 Negative values found for fare_amount
+
+/* Checking the fare_amount value by vendorid */
+SELECT count(fare_amount) as fare_amount, vendorid FROM taxi_temp where fare_amount < 0 GROUP BY vendorid ORDER BY vendorid;
+
+Total 9372 negative values found for vendorid=2
+
+SELECT DISTINCT extra from taxi_temp;
+
+SELECT count(extra) as extra FROM taxi_temp where extra < 0;
+
+Total 4835 negative values found for extra column
+
+/* Checking the extra value by vendorid */
+SELECT count(extra) as extra, vendorid FROM taxi_temp where extra < 0 GROUP BY vendorid ORDER BY vendorid;
+
+	extra	vendorid
+1	9	1
+2	4826	2
+
+
+/* Checking the mta_tax */
+SELECT DISTINCT mta_tax from taxi_temp;
+
+SELECT count(mta_tax) as mta_tax FROM taxi_temp where mta_tax < 0;
+
+Total 9092 negative values found for mta_taxi column
+
+SELECT count(mta_tax) as mta_tax, vendorid FROM taxi_temp where mta_tax < 0 GROUP BY vendorid ORDER BY vendorid;
+
+	mta_tax		vendorid
+1	9092		2
+
+Total 9092 negative values found for vendorid=2
+
+/* Checking for tip_amount */
+
+SELECT DISTINCT tip_amount from taxi_temp;
+
+SELECT count(tip_amount) as tip_amount FROM taxi_temp where tip_amount < 0
+
+	tip_amount
+1	97
+
+SELECT count(tip_amount) as tip_amount, vendorid FROM taxi_temp where tip_amount < 0 GROUP BY vendorid ORDER BY vendorid;
+
+	tip_amount	vendorid
+1	97		2
+
+Total 97 negative values found for tip_amount for vendorid=2
+
+/* Checking the tolls_amount */
+SELECT DISTINCT tolls_amount from taxi_temp;
+
+SELECT count(tolls_amount) as tolls_amount FROM taxi_temp where tolls_amount < 0;
+
+	tolls_amount	
+1	41
+
+SELECT count(tolls_amount) as tolls_amount, vendorid FROM taxi_temp where tolls_amount < 0 GROUP BY vendorid ORDER BY vendorid;
+
+	tolls_amount	vendorid
+1	41		2
+
+Total 41 negative values found for tolls_amount for vendorid=2
+
+/* As per the above analysis of data vendorid 2 has provided negative values for total_amount,tip_amount,tolls_amount,mta_tax, fare_amount
+for vendorid 1 has provided the wrong values for ratecodeid */
+
+/* Analysis-I */
+/* 1. Compare the overall average fare for November and December. */
+
+SELECT avg(fare_amount) as fare_amount from yellow_taxi_dec_partitioned;
+
+	fare_amount	
+1	12.935
+
+SELECT avg(fare_amount) as fare_amount from yellow_taxi_nov_partitioned;
+
+	fare_amount
+1	13.3843
+
+/* Explore the 'number of passengers per trip' - how many trips are made by each level of 'Passenger_count'? Do most people travel solo or with other people? */
+
+SELECT count(*) as passenger_per_trip, passenger_count FROM yellow_taxi_mergeddata GROUP BY passenger_count;
+
+	passenger_per_trip	passenger_count
+1	108970			0
+2	13251273		1
+3	2816147			2
+4	810776			3
+5	398856			4
+6	875854			5
+7	531011			6
+8	75			7
+9	60			8
+10	56			9
+11	1			192
+
+/* Which is the most preferred mode of payment? */
+
+SELECT count(*) AS preferred_mode_of_payment, payment_type FROM yellow_taxi_mergeddata GROUP BY payment_type;
+
+	preferred_mode_of_payment	payment_type
+1	12638715			1
+2	6026305				2
+3	100530				3
+4	27529				4
+
+As per the above data payment_type =1 is the preferred mode of payment.
+
+/* What is the average tip paid? Compare the average tip with the 25th, 50th and 75th percentiles and comment whether the 'average tip' is a representative statistic (of the central tendency) of 'tip amount paid'.*/
+
+For finding the central tendency, need to use the Built in Aggregate Functions (UDAF):-
+
+/* For 25th Percentile */
+SELECT percentile(bigint(tip_amount),0.25) as average_tip_paid from yellow_taxi_mergeddata;
+	average_tip_paid
+1	0
+
+/* For 50th Percentile */
+SELECT percentile(bigint(tip_amount),0.50) as average_tip_paid from yellow_taxi_mergeddata;
+	average_tip_paid
+1	1
+
+/* For 75th percentile */
+SELECT percentile(bigint(tip_amount),0.75) as average_tip_paid from yellow_taxi_mergeddata;
+
+	average_tip_paid
+1	2
+
+
+/* Explore the 'Extra' (charge) variable - what fraction of total trips have an extra charge is levied? */
+
+
+/* Analysis-II */
+
+/* What is the correlation between the number of passengers and tip paid? Do multiple travellers pay more compared to solo travellers? */
+
+SELECT corr(passenger_count,tip_amount) as correlation from yellow_taxi_mergeddata;
+
+SELECT passenger_count,tip_amount from yellow_taxi_mergeddata group by passenger_count,tip_amount;
+
+
+/* Create five buckets of 'tip paid': [0-5), [5-10), [10-15) , [15-20) and >=20. Calculate the percentage share of each bucket (i.e. the fraction of trips falling in each bucket). */
+
+SELECT round(count(CASE WHEN tip_amount>=0 AND tip_amount < 5 THEN 1 END )*100/count(tip_amount),2) as zero_to_five,
+       round(count(CASE WHEN tip_amount>=5 AND tip_amount < 10 THEN 1 END )*100/count(tip_amount),2) as five_to_ten,
+       round(count(CASE WHEN tip_amount>=10 AND tip_amount < 15 THEN 1 END )*100/count(tip_amount),2) as ten_to_fivteen,
+       round(count(CASE WHEN tip_amount>=15 AND tip_amount < 20 THEN 1 END )*100/count(tip_amount),2) as fivteen_to_twenty,
+       round(count(CASE WHEN tip_amount>=20 THEN 1 END )*100/count(tip_amount),2) as above_twenty 
+       from (SELECT tip_amount from yellow_taxi_mergedata WHERE concat(month(tpep_pickup_datetime),"-",year(tpep_pickup_datetime)) IN ('11-2017','12-2017') AND tip_amount >=0) as tip_data;
+
+/* Which month has a greater average 'speed' - November or December? Note that the variable 'speed' will have to be derived from other metrics.*/
+/* Nov Data */
+
+
+SELECT round(avg(trip_distance*60*60/(unix_timestamp(tpep_dropoff_datetime)-unix_timestamp(tpep_pickup_datetime))),2) as avgspeed from yellow_taxi_mergeddata
+WHERE  concat(month(tpep_pickup_datetime),"-",year(tpep_pickup_datetime))='11-2017' AND trip_distance>0
+
+avgspeed:12.83
+
+/* Dec data */
+SELECT round(avg(trip_distance*60*60/(unix_timestamp(tpep_dropoff_datetime)-unix_timestamp(tpep_pickup_datetime))),2) as avgspeed from yellow_taxi_mergeddata
+WHERE  concat(month(tpep_pickup_datetime),"-",year(tpep_pickup_datetime))='12-2017' AND trip_distance>0
+
+avgspeed: 12.77
+
+/*Analyse the average speed of the most happening days of the year i.e. 31st December (New year's eve) and 25th December (Christmas Eve) and compare it with the overall average. */
+
+SELECT round(avg(trip_distance*60*60/(unix_timestamp(tpep_dropoff_datetime)-unix_timestamp(tpep_pickup_datetime))),2) as avgspeed from yellow_taxi_mergeddata WHERE trip_distance >0
+
+avgspeed:12.8
+
+/* 25th Dec data */
+SELECT round(avg(trip_distance*60*60/(unix_timestamp(tpep_dropoff_datetime)-unix_timestamp(tpep_pickup_datetime))),2) as avgspeed2512
+from yellow_taxi_mergeddata WHERE trip_distance >0 AND month(tpep_pickup_datetime)=12 and day(tpep_pickup_datetime)=25;
+
+avgspeed2512:16.86
+
+/* 31 Dec data*/
+SELECT round(avg(trip_distance*60*60/(unix_timestamp(tpep_dropoff_datetime)-unix_timestamp(tpep_pickup_datetime))),2) as avgspeed3112
+from yellow_taxi_mergeddata WHERE trip_distance >0 AND month(tpep_pickup_datetime)=12 and day(tpep_pickup_datetime)=31;
+
+avgspeed3112:14.12
+
+
+
+
+
+
